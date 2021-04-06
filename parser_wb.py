@@ -11,7 +11,8 @@ import requests
 from openpyxl.styles import Alignment, PatternFill
 from openpyxl.utils import get_column_letter
 from selenium import webdriver
-
+import telebot
+import logging
 
 # class Analytics_sheet:
 #     def check_old_price:
@@ -157,6 +158,7 @@ def removing_and_add_goods(book, sheet0, sheet1, new_goods):
         while row_int <= len_rows:
             if sheet0['A' + str(row_int)].value not in new_articles and sheet0['A' + str(row_int)].value is not None:
                 print(f'\t[-] Товар удален: {sheet0["C" + str(row_int)].value} [{sheet0["A" + str(row_int)].value}]')
+                send_in_telegram(f'\t[-] Товар удален: {sheet0["C" + str(row_int)].value} [{sheet0["A" + str(row_int)].value}]')
                 sheet0.delete_rows(row_int)  # Если строка удалена, следующая строка падает на координаты удаленной
                 sheet1.delete_rows(row_int)  # строки, по этому цикл заново повторяется без увеличение индекса row
                 continue  # что бы заново проверить товар в координатах ранее удаленного товара  A2 > A2
@@ -167,6 +169,7 @@ def removing_and_add_goods(book, sheet0, sheet1, new_goods):
             # ДОБАВЛЕНИЕ ТОВАРОВ
             if new_articles[i] != sheet0[f'A{i + 2}'].value and new_articles[i] not in all_old_article:
                 print(f'\t[+] Обнаружен товар: {new_goods[2][i]} [{new_articles[i]}]')
+                send_in_telegram(f'\t[+] Обнаружен товар: {new_goods[2][i]} [{new_articles[i]}]')
                 sheet0.insert_rows(i + 2, 1)
                 sheet1.insert_rows(i + 2, 1)
                 for j in range(5):
@@ -250,6 +253,7 @@ def check_update_price(book, sheet0, data):
         sheet0.move_range(f'D1:{get_column_letter(sheet0.max_column)}{sheet0.max_row}', cols=1)
         cell_styles(sheet0, sheet0.max_column, None, False, 18, None)  # Делаем ширину столба для устаревших цен
         print(f'[*] Цены обновлены : {datetime.now().strftime("%H:%M:%S")}')
+        send_in_telegram(f'[*] Цены обновлены : {datetime.now().strftime("%H:%M:%S")}')
         # Цикл НАПОЛНЕНИЯ НОВЫХ ЦЕНЫ
         for i in range(len(data[0])):
             add_price_sheet0(book, data, i)  # Попутно функция будет изменять цены в sheet1
@@ -292,22 +296,26 @@ def add_price_sheet0(book, data, i):
             cell_styles(sheet0, 4, i + 2, True, None, 'ffd700')
             sheet0['D' + str(i + 2)].value = new_price_str
             add_price_sheet1(sheet1, new_price_str, i)
+            send_in_telegram(f'\t[+]Товар появился: {data[2][i]}')
             return print(f'\t[+]Товар появился: {data[2][i]}')  # Товар появился - желтый ценник
         elif new_price_str == 'Нет на складе.' and old_price_str != 'Нет на складе.':
             cell_styles(sheet0, 4, i + 2, True, None, 'AF6666')
             sheet0['D' + str(i + 2)].value = new_price_str
             add_price_sheet1(sheet1, new_price_str, i)
+            send_in_telegram(f'\t[-]Товар пропал с продажи: {data[2][i]}')
             return print(f'\t[-]Товар пропал с продажи: {data[2][i]}')  # Товар пропал - бордовый ценник
         else:  # Если старая и новая цена это числа
             if int(new_price_str) > int(old_price_str):
                 cell_styles(sheet0, 4, i + 2, True, None, 'ff0000')
                 sheet0['D' + str(i + 2)].value = f"{new_price_str} | +{int(new_price_str) - int(old_price_str)}р."
                 add_price_sheet1(sheet1, new_price_str, i)
+                send_in_telegram(f'\t[$]Повышение цены на {int(new_price_str) - int(old_price_str)}р : {data[2][i]}')
                 return print(f'\t[$]Повышение цены на {int(new_price_str) - int(old_price_str)}р : {data[2][i]}')
             elif int(new_price_str) < int(old_price_str):
                 cell_styles(sheet0, 4, i + 2, True, None, '85bb65')
                 sheet0['D' + str(i + 2)].value = f"{new_price_str} | -{int(old_price_str) - int(new_price_str)}р."
                 add_price_sheet1(sheet1, new_price_str, i)
+                send_in_telegram(f'\t[$]Снижение цены на {int(old_price_str) - int(new_price_str)}р : {data[2][i]}')
                 return print(f'\t[$]Снижение цены на {int(old_price_str) - int(new_price_str)}р : {data[2][i]}')
 
 
@@ -334,7 +342,20 @@ def add_price_sheet1(sheet1, new_price, i):
     sheet1['D' + str(i + 2)].value = f'{new_price} ({min_price} | {max_price})'
 
 
+def send_in_telegram(message):
+    while True:
+        try:
+            telegram_bot.send_message(713887294, message)
+            break
+        except Exception as e:
+            logging.info(e)
+            time.sleep(5)
+
+
 def main():
+    # Инициализируем телеграм бота, указав TOKEN
+    global telegram_bot
+    telegram_bot = telebot.TeleBot('1724944326:AAESiVu-pIRyYjMlyvILQwXeCeB4AbIHsUw')
     while True:
         tkinter.Tk().withdraw()
         global parsing_link, cookie_path, excel_path, html
