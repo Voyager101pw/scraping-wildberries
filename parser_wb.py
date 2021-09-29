@@ -73,7 +73,7 @@ def get_data_from_html(html):
     data = [[], [], [], []]  # [[article], [brands],[names],[prices]]
     html = html.replace('{', '\n').replace('}', '').split('\n')
     for line in html:
-        if '"cod1S":' in line:
+        if '"source":2' in line:
             [data[0].append(re.sub('.*:', '', i)) for i in re.findall('"cod1S":[0-9]*', str(line))]
 
             [data[1].append(i.replace('"', '').replace('brandName:', '')) \
@@ -340,7 +340,7 @@ def main():
         global parsing_link, cookie_path, excel_path, html
         cookie_path = 'cookies.pkl'
         excel_path = 'WildBerries.xlsx'
-        parsing_link = 'https://www.wildberries.ru/lk/poned/data?page=1&pageSize=100&group=0'
+        parsing_link = 'https://www.wildberries.ru/lk/favorites/data?'
         html = get_html()
         data = get_data_from_html(html)
         pyexcel(data)
